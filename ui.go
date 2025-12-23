@@ -16,7 +16,7 @@ var uiHTML = `<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>URL Shortener - Fast & Simple</title>
+  <title>Shawty URL</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -371,7 +371,7 @@ var uiHTML = `<!doctype html>
 <body>
   <div class="container">
     <div class="header">
-      <h1>URL Shortener</h1>
+      <h1>Shawty URL</h1>
       <p>Transform your long URLs into short, shareable links</p>
     </div>
 
@@ -383,7 +383,7 @@ var uiHTML = `<!doctype html>
 
       <div class="input-group">
         <label for="code">Custom short code (optional)</label>
-        <input id="code" type="text" placeholder="my-custom-code" />
+        <input id="code" type="text" placeholder="custom-code" />
       </div>
 
       <div class="button-group">
