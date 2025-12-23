@@ -116,10 +116,28 @@ func (h *Handler) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 	shortCode := strings.TrimPrefix(r.URL.Path, "/")
 
 	// Skip API endpoints and empty paths
+	// if shortCode == "" || strings.HasPrefix(shortCode, "api/") || shortCode == "shorten" {
+	// 	http.NotFound(w, r)
+	// 	return
+	// }
 	if shortCode == "" || strings.HasPrefix(shortCode, "api/") || shortCode == "shorten" {
-		http.NotFound(w, r)
-		return
-	}
+       // If root path (""), show a small HTML landing page explaining endpoints.
+        if shortCode == "" {
+            w.Header().Set("Content-Type", "text/html; charset=utf-8")
+            fmt.Fprint(w, `<!doctype html><html><head><meta charset="utf-8"><title>URL Shortener</title></head><body>
+<h1>URL Shortener</h1>
+<p>Quick API:</p>
+<ul>
+  <li>POST <code>/shorten</code> — create a short URL (JSON body: <code>{"url":"https://..."}</code>)</li>
+  <li>GET <code>/{code}</code> — redirect to the original URL</li>
+  <li>GET <code>/api/urls</code> — list all urls (JSON)</li>
+</ul>
+</body></html>`)
+            return
+        }
+        http.NotFound(w, r)
+        return
+    }
 
 	// Get original URL
 	mapping, err := h.store.Get(shortCode)
