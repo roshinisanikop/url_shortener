@@ -32,35 +32,35 @@ A production-ready URL shortener service built with Go, featuring thread-safe op
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                         Client Layer                        │
+│                         Client Layer                         │
 │  (Web Browsers, Mobile Apps, API Clients, CLI Tools)        │
 └────────────────────────┬────────────────────────────────────┘
                          │ HTTP/HTTPS
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                      HTTP Server Layer                      │
-│                    (Go net/http Package)                    │
-│                         Port 8080                           │
+│                      HTTP Server Layer                       │
+│                    (Go net/http Package)                     │
+│                         Port 8080                            │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                      Handler Layer                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │   /shorten   │  │   /{code}    │  │  /api/urls   │       │
-│  │   (POST)     │  │    (GET)     │  │    (GET)     │       │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘       │
-│         │                  │                  │             │
-│         └──────────────────┴──────────────────┘             │
-│                            │                                │
-└────────────────────────────┼────────────────────────────────┘
+│                      Handler Layer                           │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │   /shorten   │  │   /{code}    │  │  /api/urls   │      │
+│  │   (POST)     │  │    (GET)     │  │    (GET)     │      │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │
+│         │                  │                  │              │
+│         └──────────────────┴──────────────────┘              │
+│                            │                                 │
+└────────────────────────────┼─────────────────────────────────┘
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Business Logic Layer                     │
+│                    Business Logic Layer                      │
 │  ┌────────────────────────────────────────────────────┐     │
 │  │  Shortener Module                                  │     │
-│  │  - GenerateShortCode() (SHA256 + Base64)           │     │
+│  │  - GenerateShortCode() (SHA256 + Base64)          │     │
 │  │  - ValidateURL()                                   │     │
 │  │  - isValidShortCode()                              │     │
 │  └────────────────────────────────────────────────────┘     │
@@ -68,14 +68,14 @@ A production-ready URL shortener service built with Go, featuring thread-safe op
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                      Storage Layer                          │
+│                      Storage Layer                           │
 │  ┌────────────────────────────────────────────────────┐     │
-│  │  URLStore (Thread-Safe In-Memory Storage)          │     │
-│  │                                                    │     │
-│  │  Primary Index:   map[shortCode] → URLMapping      │     │
-│  │  Reverse Index:   map[originalURL] → shortCode     │     │
-│  │                                                    │     │
-│  │  Mutex: sync.RWMutex (Reader-Writer Lock)          │     │
+│  │  URLStore (Thread-Safe In-Memory Storage)         │     │
+│  │                                                     │     │
+│  │  Primary Index:   map[shortCode] → URLMapping     │     │
+│  │  Reverse Index:   map[originalURL] → shortCode    │     │
+│  │                                                     │     │
+│  │  Mutex: sync.RWMutex (Reader-Writer Lock)         │     │
 │  └────────────────────────────────────────────────────┘     │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -551,6 +551,46 @@ curl -X POST http://localhost:8080/shorten \
 # Returns: {"short_code":"abc123",...}  (same code!)
 ```
 
+### Using HTTPie
+
+```bash
+# Install httpie: brew install httpie
+
+# Shorten URL
+http POST localhost:8080/shorten url="https://example.com"
+
+# Custom code
+http POST localhost:8080/shorten url="https://example.com" custom_code="ex"
+
+# List URLs
+http GET localhost:8080/api/urls
+```
+
+### Using JavaScript (fetch)
+
+```javascript
+// Shorten URL
+async function shortenURL(longURL, customCode = null) {
+  const response = await fetch('http://localhost:8080/shorten', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      url: longURL,
+      custom_code: customCode
+    })
+  });
+
+  const data = await response.json();
+  console.log('Short URL:', data.short_url);
+  return data;
+}
+
+// Usage
+shortenURL('https://www.example.com');
+shortenURL('https://www.github.com', 'gh');
+```
 
 ### Using Python (requests)
 
@@ -592,7 +632,26 @@ print(f"Total URLs: {urls['count']}")
 | **Collision Rate** | 6-char alphanumeric | ~56 billion combinations |
 
 ### Scaling to Production
-**Redis**
+
+#### 1. **Database Layer** (Critical)
+
+**Option A: PostgreSQL**
+```sql
+CREATE TABLE url_mappings (
+    short_code VARCHAR(20) PRIMARY KEY,
+    original_url TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    clicks BIGINT DEFAULT 0
+);
+
+CREATE INDEX idx_original_url ON url_mappings(original_url);
+CREATE INDEX idx_created_at ON url_mappings(created_at DESC);
+```
+
+**Benefits**: ACID transactions, complex queries, analytics
+**Trade-off**: Higher latency (~1-5ms vs <1µs)
+
+**Option B: Redis**
 ```redis
 # Primary mapping
 HSET short:{code} url "https://example.com" created_at "2025-12-22" clicks 0
@@ -616,8 +675,8 @@ EXPIRE short:{code} 86400
 
 ```
                     ┌─────────────┐
-                    │     LB      │
-                    │   (Nginx)   │
+                    │ Load Balancer│
+                    │  (Nginx/HAProxy)│
                     └──────┬──────┘
                            │
         ┌──────────────────┼──────────────────┐
@@ -629,9 +688,8 @@ EXPIRE short:{code} 86400
         └──────────────────┼──────────────────┘
                            ▼
                     ┌─────────────┐
-                    │    Redis    |
-                    |   Cluster   │
-                    │(SharedState)│
+                    │ Redis Cluster│
+                    │ (Shared State)│
                     └──────┬──────┘
                            │
                            ▼
@@ -663,8 +721,6 @@ func GetCodeLength(totalURLs int64) int {
     }
 }
 ```
-
-<!-- **Alternative**: Snowflake IDs (distributed unique ID generation) -->
 
 #### 4. **Caching Strategy**
 
@@ -751,6 +807,74 @@ url-shortener/
 - Dependencies: Standard library only (zero external deps)
 - Test Coverage: Not implemented (future work)
 
+## Future Enhancements
+
+### Short-term (v1.1)
+- [ ] Persistent storage (PostgreSQL/Redis)
+- [ ] Configuration via environment variables
+- [ ] Structured logging (JSON logs)
+- [ ] Graceful shutdown
+- [ ] Health check endpoint (`/health`)
+- [ ] Metrics endpoint (`/metrics`) for Prometheus
+- [ ] Docker support (Dockerfile + docker-compose)
+
+### Medium-term (v1.5)
+- [ ] Expiration dates for short URLs (TTL)
+- [ ] Rate limiting (per IP, per user)
+- [ ] API authentication (API keys, JWT)
+- [ ] Analytics dashboard (click heatmaps, referrers)
+- [ ] QR code generation for short URLs
+- [ ] Bulk URL shortening endpoint
+- [ ] URL preview before redirect (optional)
+- [ ] Custom slug validation against reserved words
+
+### Long-term (v2.0)
+- [ ] Multi-tenancy (separate namespaces per user)
+- [ ] Custom domains (user.short.link)
+- [ ] Geographic routing (redirect based on user location)
+- [ ] A/B testing for URLs
+- [ ] Webhook notifications on URL creation/access
+- [ ] Browser extension for one-click shortening
+- [ ] GraphQL API alongside REST
+- [ ] URL categorization and tagging
+- [ ] Scheduled URL activation/deactivation
+
+### Performance & Reliability
+- [ ] Circuit breaker pattern for external deps
+- [ ] Request deduplication
+- [ ] Distributed tracing (OpenTelemetry)
+- [ ] Canary deployments
+- [ ] Blue-green deployment support
+- [ ] Automated backups and disaster recovery
+- [ ] Multi-region deployment
+
+### Security
+- [ ] HTTPS enforcement
+- [ ] CORS configuration
+- [ ] Input sanitization against XSS
+- [ ] SQL injection prevention (parameterized queries)
+- [ ] Malicious URL detection (phishing, malware)
+- [ ] CAPTCHA for public endpoints
+- [ ] OAuth2 integration
+
+## Contributing
+
+Contributions welcome! Please follow these guidelines:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+**Code Standards**:
+- Run `go fmt` before committing
+- Add tests for new features
+- Update documentation as needed
+
+## License
+
+MIT License - see LICENSE file for details
 
 ## Acknowledgments
 
