@@ -19,15 +19,21 @@ func main() {
 	http.HandleFunc("/shorten", handler.HandleShorten)
 	http.HandleFunc("/api/urls", handler.HandleListURLs)
 
-	port := ":8080"
-	fmt.Printf("URL Shortener running on http://localhost%s\n", port)
+	// Use PORT environment variable when provided (Cloud Run sets this)
+	envPort := os.Getenv("PORT")
+	if envPort == "" {
+		envPort = "8080"
+	}
+	addr := ":" + envPort
+
+	fmt.Printf("URL Shortener running on http://localhost:%s\n", envPort)
 	fmt.Println("Endpoints:")
 	fmt.Println("  POST /shorten - Create a short URL")
 	fmt.Println("  GET  /{code}  - Redirect to original URL")
 	fmt.Println("  GET  /api/urls - List all URLs")
 
 	srv := &http.Server{
-		Addr:         port,
+		Addr:         addr,
 		Handler:      nil,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,

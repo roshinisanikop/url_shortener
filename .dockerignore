@@ -1,0 +1,13 @@
+# Ignore git and local build artifacts
+.git
+bin
+bin/
+*.log
+*.tmp
+/.idea
+/.vscode
+__pycache__
+node_modules
+*.md
+*.mk
+*.swp
