@@ -1,8 +1,6 @@
 FROM golang:1.21-alpine AS build
 WORKDIR /src
-
-# Cache dependencies
-COPY go.mod go.sum ./
+COPY go.mod ./
 RUN go mod download
 
 COPY . .
