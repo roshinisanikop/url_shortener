@@ -1,6 +1,6 @@
 # Shawty URL
 
-A fast, elegant URL shortener service built with Go, featuring a clean sky-themed UI and efficient in-memory storage.
+A fast, elegant URL shortener service built with Go.
 
 ## Live Service
 
@@ -112,22 +112,7 @@ curl -X POST http://localhost:8080/shorten \
 curl http://localhost:8080/api/urls
 ```
 
-### JavaScript
 
-```javascript
-async function shortenURL(url, customCode = null) {
-  const response = await fetch('http://localhost:8080/shorten', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, custom_code: customCode })
-  });
-  return await response.json();
-}
-
-// Usage
-const result = await shortenURL('https://example.com', 'ex');
-console.log(result.short_url);
-```
 
 ### Python
 
@@ -199,7 +184,6 @@ export PORT=8080
 go run .
 ```
 
-## Production Considerations
 
 ### Current Limitations
 
